@@ -6,7 +6,7 @@ const fs = require('fs');
 const argv = require('minimist')(process.argv.slice(2));
 
 function usage() {
-  console.log('Usage:\n\tdownload_album.js [-h|--help] URL_OF_DESIRED_ALBUM');
+  console.log('Usage:\n\tdownload_album.js [-h|--help] URL_TO_ALBUM');
 }
 
 if (argv.h || argv.help) {
