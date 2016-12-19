@@ -1,6 +1,8 @@
 {
   "dependencies": {
     "cheerio": "^0.22.0",
+    "minimist": "^1.2.0",
     "request": "^2.79.0"
-  }
+  },
+  "devDependencies": {}
 }

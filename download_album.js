@@ -3,10 +3,25 @@
 const request = require('request');
 const cheerio = require('cheerio');
 const fs = require('fs');
+const argv = require('minimist')(process.argv.slice(2));
 
-if (!process.argv[2] || typeof process.argv[2] !== 'string') {
-  console.log('Usage:\n\tdownload_album.js URL_of_desired_album');
-  process.exit(1);
+function usage() {
+  console.log('Usage:\n\tdownload_album.js [-h|--help] URL_OF_DESIRED_ALBUM');
+}
+
+if (argv.h || argv.help) {
+  usage();
+  process.exit(0);
+}
+else {
+  const keys = Object.keys(argv);
+  if (keys.length > 1 || argv._.length === 0) {
+    keys.forEach(key => {
+      if (key !== '_') console.log(`Unknown key: ${key}`);
+    });
+    usage();
+    process.exit(1);
+  }
 }
 
 const albumURL = process.argv[2];
