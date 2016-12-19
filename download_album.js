@@ -114,6 +114,7 @@ function downloadFile(trackInfo) {
     }
 
     function requestAndWrite() {
+      console.log(`Starting download: ${trackInfo.trackNo} - ${trackInfo.title}`);
       request({
         url: trackInfo.url,
         headers: {
