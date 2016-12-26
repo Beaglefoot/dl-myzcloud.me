@@ -84,14 +84,16 @@ function executeInChunks(array, callback, queueSize = 5) {
     if (array.length) {
       Promise.race(queueArray)
         .then(function(index) {
-          queueArray.splice(index, 1);
-          queueArray[index] = new Promise(function(resolve) {
+          queueArray.splice(index, 1, new Promise(function(resolve) {
             callback(array.shift())
               .then(function() {
                 resolve(index);
               });
-          });
+          }));
           keepQueueSize();
+        })
+        .catch(function() {
+          console.log('Cannot assemble another chunk');
         });
     }
   }
