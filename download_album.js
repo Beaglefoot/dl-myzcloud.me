@@ -41,7 +41,7 @@ request({
 function getLinksAndTags(html, callback) {
   const $ = cheerio.load(html);
 
-  const [artist, album] = $('h1').text().trim().split(' - ', 2);
+  const [album, artist = 'VA'] = $('h1').text().trim().split(' - ', 2).reverse();
   const tracksData = [];
   const $tracks = $('.player-inline');
   const len = $tracks.length;
