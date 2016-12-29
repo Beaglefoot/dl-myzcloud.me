@@ -31,8 +31,8 @@ request({
   headers: {
     'User-Agent': 'request'
   }
-}, function(error, response, body) {
-  if (!error) getLinksAndTags(body, function(tracksData) {
+}, (error, response, body) => {
+  if (!error) getLinksAndTags(body, tracksData => {
     executeInChunks(tracksData, downloadFile);
   });
   else console.log(error);
@@ -46,16 +46,16 @@ function getLinksAndTags(html, callback) {
   const $tracks = $('.player-inline');
   const len = $tracks.length;
 
-  $tracks.each(function(index) {
-    let trackNo = $(this).find('.position').text().trim();
+  $tracks.each((index, element) => {
+    let trackNo = $(element).find('.position').text().trim();
     if (trackNo.length < 2) trackNo = '0' + trackNo;
 
     tracksData.push({
-      url: 'https://myzuka.fm' + $(this).find('span.ico').attr('data-url'),
-      trackNo: trackNo,
-      title: $(this).find('.details p').text().trim(),
-      artist: artist,
-      album: album
+      url: `https://myzuka.fm${$(element).find('span.ico').attr('data-url')}`,
+      trackNo,
+      title: $(element).find('.details p').text().trim(),
+      artist,
+      album
     });
 
     if (index === (len - 1)) callback(tracksData);
@@ -65,34 +65,34 @@ function getLinksAndTags(html, callback) {
 function executeInChunks(array, callback, queueSize = 5) {
   // Form initial queue consisting of promises, which resolve with
   // their index number in the queue array.
-  const queueArray = array.splice(0, queueSize).map(function(element, index) {
-    return new Promise(function(resolve, reject) {
+  const queueArray = array.splice(0, queueSize).map((element, index) => (
+    new Promise((resolve, reject) => {
       callback(element)
-        .then(function() {
+        .then(() => {
           resolve(index);
         })
-        .catch(function(err) {
+        .catch(err => {
           reject();
           throw err;
         });
-    });
-  });
+    })
+  ));
 
   // Recursively get rid of resolved promises in the queue.
   // Add new promises preventing queue from emptying.
   function keepQueueSize() {
     if (array.length) {
       Promise.race(queueArray)
-        .then(function(index) {
-          queueArray.splice(index, 1, new Promise(function(resolve) {
+        .then(index => {
+          queueArray.splice(index, 1, new Promise(resolve => {
             callback(array.shift())
-              .then(function() {
+              .then(() => {
                 resolve(index);
               });
           }));
           keepQueueSize();
         })
-        .catch(function() {
+        .catch(() => {
           console.log('Cannot assemble another chunk');
         });
     }
@@ -102,7 +102,7 @@ function executeInChunks(array, callback, queueSize = 5) {
 }
 
 function downloadFile(trackInfo) {
-  return new Promise(function(resolve, reject) {
+  return new Promise((resolve, reject) => {
 
     trackInfo.artist = cleanUpSymbols(trackInfo.artist);
     trackInfo.album = cleanUpSymbols(trackInfo.album);
@@ -123,26 +123,26 @@ function downloadFile(trackInfo) {
           'User-Agent': 'request'
         }
       })
-        .on('error', function(error) {
+        .on('error', error => {
           console.log(error);
           reject(error);
         })
         .pipe(fs.createWriteStream(filename)
-          .on('finish', function() {
+          .on('finish', () => {
             console.log(`Download is finished: ${trackInfo.trackNo} - ${trackInfo.title}`);
             resolve();
           })
-          .on('error', function(error) {
+          .on('error', error => {
             console.log(`Download is failed: ${trackInfo.trackNo} - ${trackInfo.title}`);
             reject(error);
           }));
     }
 
     // Check the existence of the target directory
-    fs.access(`${trackInfo.artist}/${trackInfo.album}`, fs.constants.F_OK, function(error) {
+    fs.access(`${trackInfo.artist}/${trackInfo.album}`, fs.constants.F_OK, error => {
       if (error) {
-        fs.mkdir(`${trackInfo.artist}`, function() {
-          fs.mkdir(`${trackInfo.artist}/${trackInfo.album}`, function() {
+        fs.mkdir(`${trackInfo.artist}`, () => {
+          fs.mkdir(`${trackInfo.artist}/${trackInfo.album}`, () => {
             requestAndWrite();
           });
         });
