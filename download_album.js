@@ -26,18 +26,6 @@ else {
 
 const albumURL = process.argv[2];
 
-request({
-  url: albumURL,
-  headers: {
-    'User-Agent': 'request'
-  }
-}, (error, response, body) => {
-  if (!error) getLinksAndTags(body, tracksData => {
-    executeInChunks(tracksData, downloadFile);
-  });
-  else console.log(error);
-});
-
 function getLinksAndTags(html, callback) {
   const $ = cheerio.load(html);
 
@@ -45,6 +33,7 @@ function getLinksAndTags(html, callback) {
   const tracksData = [];
   const $tracks = $('.player-inline');
   const len = $tracks.length;
+  const coverURL = $('.side .vis img').attr('src');
 
   $tracks.each((index, element) => {
     let trackNo = $(element).find('.position').text().trim();
@@ -58,7 +47,7 @@ function getLinksAndTags(html, callback) {
       album
     });
 
-    if (index === (len - 1)) callback(tracksData);
+    if (index === (len - 1)) callback(tracksData, coverURL);
   });
 }
 
@@ -71,10 +60,7 @@ function executeInChunks(array, callback, queueSize = 5) {
         .then(() => {
           resolve(index);
         })
-        .catch(err => {
-          reject();
-          throw err;
-        });
+        .catch(reject);
     })
   ));
 
@@ -92,8 +78,9 @@ function executeInChunks(array, callback, queueSize = 5) {
           }));
           keepQueueSize();
         })
-        .catch(() => {
+        .catch(error => {
           console.log('Cannot assemble another chunk');
+          throw error;
         });
     }
   }
@@ -101,53 +88,99 @@ function executeInChunks(array, callback, queueSize = 5) {
   keepQueueSize();
 }
 
-function downloadFile(trackInfo) {
+function cleanUpSymbols(inputString) {
+  return inputString.replace(/[:/\"<>|]/g, '');
+}
+
+function downloadFile(url, filename) {
   return new Promise((resolve, reject) => {
-
-    trackInfo.artist = cleanUpSymbols(trackInfo.artist);
-    trackInfo.album = cleanUpSymbols(trackInfo.album);
-    trackInfo.trackNo = cleanUpSymbols(trackInfo.trackNo);
-    trackInfo.title = cleanUpSymbols(trackInfo.title);
-
-    const filename = `${trackInfo.artist}/${trackInfo.album}/${trackInfo.trackNo} - ${trackInfo.title}.mp3`;
-
-    function cleanUpSymbols(inputString) {
-      return inputString.replace(/[:/\"<>|]/g, '');
-    }
-
-    function requestAndWrite() {
-      console.log(`Starting download: ${trackInfo.trackNo} - ${trackInfo.title}`);
-      request({
-        url: trackInfo.url,
-        headers: {
-          'User-Agent': 'request'
-        }
+    request({
+      url,
+      headers: {
+        'User-Agent': 'request'
+      }
+    })
+      .on('error', error => {
+        console.log(error);
+        reject(error);
       })
-        .on('error', error => {
-          console.log(error);
-          reject(error);
-        })
-        .pipe(fs.createWriteStream(filename)
-          .on('finish', () => {
-            console.log(`Download is finished: ${trackInfo.trackNo} - ${trackInfo.title}`);
-            resolve();
-          })
-          .on('error', error => {
-            console.log(`Download is failed: ${trackInfo.trackNo} - ${trackInfo.title}`);
-            reject(error);
-          }));
-    }
+      .pipe(
+        fs.createWriteStream(filename)
+          .on('finish', resolve)
+          .on('error', reject)
+      );
+  });
+}
+
+function downloadTrack(trackInfo) {
+  trackInfo.artist = cleanUpSymbols(trackInfo.artist);
+  trackInfo.album = cleanUpSymbols(trackInfo.album);
+  trackInfo.trackNo = cleanUpSymbols(trackInfo.trackNo);
+  trackInfo.title = cleanUpSymbols(trackInfo.title);
+
+  const filename = `${trackInfo.artist}/${trackInfo.album}/${trackInfo.trackNo} - ${trackInfo.title}.mp3`;
+
+  console.log(`Starting download: ${trackInfo.trackNo} - ${trackInfo.title}`);
+
+  return downloadFile(trackInfo.url, filename)
+    .then(() => {
+      console.log(`Download is finished: ${trackInfo.trackNo} - ${trackInfo.title}`);
+      return Promise.resolve();
+    })
+    .catch(error => {
+      console.log(`Download is failed: ${trackInfo.trackNo} - ${trackInfo.title}`);
+      return Promise.reject(error);
+    });
+}
+
+function prepareAlbumDir(tracksData) {
+  return new Promise(resolve => {
+    const artist = cleanUpSymbols(tracksData[0].artist);
+    const album = cleanUpSymbols(tracksData[0].album);
+    const albumDir = `${artist}/${album}`;
 
     // Check the existence of the target directory
-    fs.access(`${trackInfo.artist}/${trackInfo.album}`, fs.constants.F_OK, error => {
+    fs.access(albumDir, fs.constants.F_OK, error => {
       if (error) {
-        fs.mkdir(`${trackInfo.artist}`, () => {
-          fs.mkdir(`${trackInfo.artist}/${trackInfo.album}`, () => {
-            requestAndWrite();
+        fs.mkdir(`${artist}`, () => {
+          fs.mkdir(albumDir, () => {
+            resolve(albumDir);
           });
         });
       }
-      else requestAndWrite();
+      else resolve(albumDir);
     });
   });
 }
+
+function downloadCover(coverURL, albumDir) {
+  const filename = `${albumDir}/cover.jpg`;
+
+  return downloadFile(coverURL, filename)
+    .then(() => {
+      console.log('Cover is downloaded');
+      return Promise.resolve();
+    })
+    .catch(error => {
+      console.log('Failed to download cover');
+      return Promise.reject(error);
+    });
+}
+
+
+request({
+  url: albumURL,
+  headers: {
+    'User-Agent': 'request'
+  }
+}, (error, response, body) => {
+  if (!error) getLinksAndTags(body,
+    (tracksData, coverURL) => {
+      prepareAlbumDir(tracksData)
+        .then(albumDir => downloadCover(coverURL, albumDir))
+        .then(() => executeInChunks(tracksData, downloadTrack))
+        .catch(error => console.log(`Failed to download the album: ${error}`));
+    }
+  );
+  else console.log(error);
+});
