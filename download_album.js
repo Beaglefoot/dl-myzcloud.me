@@ -5,26 +5,45 @@ const cheerio = require('cheerio');
 const fs = require('fs');
 const argv = require('minimist')(process.argv.slice(2));
 
-function usage() {
-  console.log('Usage:\n\tdownload_album.js [-h|--help] URL_TO_ALBUM');
+function usage(exitCode) {
+  console.log(
+    'Usage:\n\tdownload_album.js [OPTIONS] ALBUM_URL\n\n' +
+    'Valid options are:\n' +
+    '\t-h|--help\t\tGet this message\n' +
+    '\t-s NUMBER\t\tNumber of tracks to be downloaded simultaneously (default: 5)'
+  );
+  process.exit(exitCode);
 }
 
-if (argv.h || argv.help) {
-  usage();
-  process.exit(0);
-}
-else {
-  const keys = Object.keys(argv);
-  if (keys.length > 1 || argv._.length === 0) {
-    keys.forEach(key => {
-      if (key !== '_') console.log(`Unknown key: ${key}`);
-    });
-    usage();
-    process.exit(1);
+let parallelDownloads = 5;
+const knownKeys = {
+  help() {
+    usage(0);
+  },
+  h() {
+    this.help();
+  },
+  s(num) {
+    typeof num === 'number' ? parallelDownloads = argv.s : usage(1);
   }
+};
+
+const providedKeys = Object.keys(argv).filter(key => key !== '_');
+const unknownKeys = providedKeys.filter(key => !knownKeys[key]);
+
+if (unknownKeys.length || argv._.length !== 1) {
+  unknownKeys.forEach(key => {
+    console.log(`Unknown key: ${key}`);
+  });
+
+  usage(1);
 }
 
-const albumURL = process.argv[2];
+providedKeys.forEach(key => {
+  knownKeys[key](argv[key]);
+});
+
+const albumURL = argv._[0];
 
 function getLinksAndTags(html, callback) {
   const $ = cheerio.load(html);
@@ -178,7 +197,7 @@ request({
     (tracksData, coverURL) => {
       prepareAlbumDir(tracksData)
         .then(albumDir => downloadCover(coverURL, albumDir))
-        .then(() => executeInChunks(tracksData, downloadTrack))
+        .then(() => executeInChunks(tracksData, downloadTrack, parallelDownloads))
         .catch(error => console.log(`Failed to download the album: ${error}`));
     }
   );
