@@ -108,7 +108,7 @@ function executeInChunks(array, callback, queueSize = 5) {
 }
 
 function cleanUpSymbols(inputString) {
-  return inputString.replace(/[:/\"<>|]/g, '');
+  return inputString.replace(/[:/\"*<>|?]/g, '');
 }
 
 function downloadFile(url, filename) {
