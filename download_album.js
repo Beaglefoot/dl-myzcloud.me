@@ -1,10 +1,14 @@
 #!/bin/env node
 
 const request = require('request');
+const url = require('url');
 const cheerio = require('cheerio');
 const fs = require('fs');
 const argv = require('minimist')(process.argv.slice(2));
 
+
+
+// Handle command line arguments and etc.
 function usage(exitCode) {
   console.log(
     'Usage:\n\tdownload_album.js [OPTIONS] ALBUM_URL\n\n' +
@@ -43,9 +47,15 @@ providedKeys.forEach(key => {
   knownKeys[key](argv[key]);
 });
 
-const albumURL = argv._[0];
 
-function getLinksAndTags(html, callback) {
+
+const albumURL = argv._[0];
+const domain = url.parse(albumURL).hostname;
+
+
+
+// Declare functions
+function getLinksAndTags(html, callback, domain) {
   const $ = cheerio.load(html);
 
   const [album, artist = 'VA'] = $('h1').text().trim().split(' - ', 2).reverse();
@@ -59,7 +69,7 @@ function getLinksAndTags(html, callback) {
     if (trackNo.length < 2) trackNo = '0' + trackNo;
 
     tracksData.push({
-      url: `https://myzuka.fm${$(element).find('span.ico').attr('data-url')}`,
+      url: `https://${domain}${$(element).find('span.ico').attr('data-url')}`,
       trackNo,
       title: $(element).find('.details p').text().trim(),
       artist,
@@ -187,6 +197,7 @@ function downloadCover(coverURL, albumDir) {
 }
 
 
+
 request({
   url: albumURL,
   headers: {
@@ -199,7 +210,8 @@ request({
         .then(albumDir => downloadCover(coverURL, albumDir))
         .then(() => executeInChunks(tracksData, downloadTrack, parallelDownloads))
         .catch(error => console.log(`Failed to download the album: ${error}`));
-    }
+    },
+    domain
   );
   else console.log(error);
 });
