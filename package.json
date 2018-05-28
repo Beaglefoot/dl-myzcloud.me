@@ -5,5 +5,7 @@
     "request": "^2.87.0",
     "request-promise-native": "^1.0.5"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "prettier": "^1.13.0"
+  }
 }
