@@ -1,4 +1,4 @@
-#!/bin/env node
+#!/usr/bin/env node
 
 const request = require('request');
 const url = require('url');
@@ -60,18 +60,18 @@ function getLinksAndTags(html, callback, domain) {
 
   const [album, artist = 'VA'] = $('h1').text().trim().split(' - ', 2).reverse();
   const tracksData = [];
-  const $tracks = $('.player-inline');
+  const $tracks = $('.playlist__item');
   const len = $tracks.length;
-  const coverURL = $('.side .vis img').attr('src');
+  const coverURL = $('.album-img').attr('src');
 
   $tracks.each((index, element) => {
-    let trackNo = $(element).find('.position').text().trim();
+    let trackNo = $(element).find('.playlist__position').text().trim();
     if (trackNo.length < 2) trackNo = '0' + trackNo;
 
     tracksData.push({
-      url: `https://${domain}${$(element).find('span.ico').attr('data-url')}`,
+      url: `https://${domain}${$(element).find('.playlist__control.play').attr('data-url')}`,
       trackNo,
-      title: $(element).find('.details p').text().trim(),
+      title: $(element).find('.playlist__details a.strong').text().trim(),
       artist,
       album
     });
