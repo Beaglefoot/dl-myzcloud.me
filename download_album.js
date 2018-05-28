@@ -80,38 +80,30 @@ function getLinksAndTags(html, domain) {
 }
 
 function executeInChunks(array, callback, queueSize = 5) {
+  const execWith = async (element, index) => {
+    await callback(element);
+    return index;
+  };
+
   // Form initial queue consisting of promises, which resolve with
   // their index number in the queue array.
-  const queueArray = array.splice(0, queueSize).map((element, index) => (
-    new Promise((resolve, reject) => {
-      callback(element)
-        .then(() => {
-          resolve(index);
-        })
-        .catch(reject);
-    })
-  ));
+  const queueArray = array.splice(0, queueSize).map(execWith);
 
   // Recursively get rid of resolved promises in the queue.
   // Add new promises preventing queue from emptying.
-  function keepQueueSize() {
+  const keepQueueSize = async () => {
     if (array.length) {
-      Promise.race(queueArray)
-        .then(index => {
-          queueArray.splice(index, 1, new Promise(resolve => {
-            callback(array.shift())
-              .then(() => {
-                resolve(index);
-              });
-          }));
-          keepQueueSize();
-        })
-        .catch(error => {
-          console.log('Cannot assemble another chunk');
-          throw error;
-        });
+      try {
+        const index = await Promise.race(queueArray);
+        queueArray.splice(index, 1, execWith(array.shift(), index));
+        keepQueueSize();
+      }
+      catch(error) {
+        console.log('Cannot assemble another chunk');
+        throw error;
+      }
     }
-  }
+  };
 
   keepQueueSize();
 }
