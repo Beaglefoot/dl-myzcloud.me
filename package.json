@@ -2,7 +2,8 @@
   "dependencies": {
     "cheerio": "^0.22.0",
     "minimist": "^1.2.0",
-    "request": "^2.79.0"
+    "request": "^2.87.0",
+    "request-promise-native": "^1.0.5"
   },
   "devDependencies": {}
 }

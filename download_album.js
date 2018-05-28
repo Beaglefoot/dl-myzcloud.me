@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const request = require('request');
+const request = require('request-promise-native');
 const url = require('url');
 const cheerio = require('cheerio');
 const fs = require('fs');
@@ -54,8 +54,7 @@ const domain = url.parse(albumURL).hostname;
 
 
 
-// Declare functions
-function getLinksAndTags(html, callback, domain) {
+function getLinksAndTags(html, domain) {
   const $ = cheerio.load(html);
 
   const [album, artist = 'VA'] = $('h1').text().trim().split(' - ', 2).reverse();
@@ -75,9 +74,9 @@ function getLinksAndTags(html, callback, domain) {
       artist,
       album
     });
-
-    if (index === (len - 1)) callback(tracksData, coverURL);
   });
+
+  return { tracksData, coverURL };
 }
 
 function executeInChunks(array, callback, queueSize = 5) {
@@ -198,20 +197,21 @@ function downloadCover(coverURL, albumDir) {
 
 
 
-request({
-  url: albumURL,
-  headers: {
-    'User-Agent': 'request'
+(async () => {
+  try {
+    const body = await request({
+      url: albumURL,
+      headers: {
+        'User-Agent': 'request'
+      }
+    });
+    const { tracksData, coverURL } = getLinksAndTags(body, domain);
+    const albumDir = await prepareAlbumDir(tracksData);
+
+    await downloadCover(coverURL, albumDir);
+    await executeInChunks(tracksData, downloadTrack, parallelDownloads);
   }
-}, (error, response, body) => {
-  if (!error) getLinksAndTags(body,
-    (tracksData, coverURL) => {
-      prepareAlbumDir(tracksData)
-        .then(albumDir => downloadCover(coverURL, albumDir))
-        .then(() => executeInChunks(tracksData, downloadTrack, parallelDownloads))
-        .catch(error => console.log(`Failed to download the album: ${error}`));
-    },
-    domain
-  );
-  else console.log(error);
-});
+  catch(error) {
+    console.log(`Failed to download the album: ${error}`);
+  }
+})();
