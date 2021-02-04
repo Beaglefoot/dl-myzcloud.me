@@ -1,4 +1,4 @@
-# Download entire albums from myzcloud.me
+# Download entire albums from musify.club
 Simple tool to run from command line
 
 ## Installation
