@@ -60,7 +60,7 @@ function getLinksAndTags(html, domain) {
   const tracksData = [];
   const $tracks = $('.playlist__item');
   const len = $tracks.length;
-  const coverURL = $('.album-img').attr('src');
+  const coverURL = $('.album-img').attr('data-src');
 
   $tracks.each((index, element) => {
     let trackNo = $(element)
@@ -183,7 +183,7 @@ async function downloadCover(coverURL, albumDir) {
     console.log('Cover is downloaded');
   } catch (error) {
     console.log('Failed to download cover');
-    throw error;
+    // throw error;
   }
 }
 
@@ -197,6 +197,10 @@ async function downloadCover(coverURL, albumDir) {
     });
     const { tracksData, coverURL } = getLinksAndTags(body, domain);
     const albumDir = await prepareAlbumDir(tracksData);
+
+	console.log(`albumURL: ${albumURL}`);
+	console.log(`domain: ${domain}`);
+	console.log(`coverURL: ${coverURL}`);
 
     await downloadCover(coverURL, albumDir);
     await executeInChunks(tracksData, downloadTrack, parallelDownloads);
