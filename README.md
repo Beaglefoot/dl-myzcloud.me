@@ -1,6 +1,8 @@
 # Download entire albums from musify.club
 Simple tool to run from command line
 
+Previously worked with myzcloud.me and myzuka.fm
+
 ## Installation
 Clone and run `npm install` to meet dependencies.
 
