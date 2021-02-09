@@ -5,49 +5,55 @@ const unpromisifiedRequest = require('request');
 const url = require('url');
 const cheerio = require('cheerio');
 const fs = require('fs');
-const argv = require('minimist')(process.argv.slice(2));
+const parseArgs = require('minimist');
 
-// Handle command line arguments and etc.
 function usage(exitCode) {
   console.log(
-    'Usage:\n\tdownload_album.js [OPTIONS] ALBUM_URL\n\n' +
+    'Usage:\n\tnode download_album.js [OPTIONS] ALBUM_URL\n\n' +
       'Valid options are:\n' +
       '\t-h|--help\t\tGet this message\n' +
+      '\t-d|--debug\t\tPrint stack trace on error\n' +
       '\t-s NUMBER\t\tNumber of tracks to be downloaded simultaneously (default: 5)'
   );
   process.exit(exitCode);
 }
 
-let parallelDownloads = 5;
-const knownKeys = {
-  help() {
-    usage(0);
+const argv = parseArgs(process.argv.slice(2), {
+  alias: {
+    help: 'h',
+    debug: 'd',
+    sim: 's'
   },
-  h() {
-    this.help();
+
+  default: {
+    help: false,
+    debug: false,
+    sim: 5
   },
-  s(num) {
-    typeof num === 'number' ? (parallelDownloads = argv.s) : usage(1);
+
+  boolean: ['help', 'debug'],
+
+  stopEarly: true,
+
+  unknown: key => {
+    if (!key.startsWith('-')) return;
+
+    console.log(`Unknown key: ${key}\n`);
+    usage(1);
   }
-};
-
-const providedKeys = Object.keys(argv).filter(key => key !== '_');
-const unknownKeys = providedKeys.filter(key => !knownKeys[key]);
-
-if (unknownKeys.length || argv._.length !== 1) {
-  unknownKeys.forEach(key => {
-    console.log(`Unknown key: ${key}`);
-  });
-
-  usage(1);
-}
-
-providedKeys.forEach(key => {
-  knownKeys[key](argv[key]);
 });
 
-const albumURL = argv._[0];
-const domain = url.parse(albumURL).hostname;
+function processArgs(argv) {
+  if (argv.help) usage(0);
+  if (typeof argv.sim !== 'number') usage(1);
+
+  const albumURL = argv._[0];
+  const domain = url.parse(albumURL).hostname;
+  const parallelDownloads = argv.sim;
+  const isDebugMode = argv.debug;
+
+  return { albumURL, domain, parallelDownloads, isDebugMode };
+}
 
 function getLinksAndTags(html, domain) {
   const $ = cheerio.load(html);
@@ -188,6 +194,10 @@ async function downloadCover(coverURL, albumDir) {
 }
 
 (async () => {
+  const { albumURL, domain, parallelDownloads, isDebugMode } = processArgs(
+    argv
+  );
+
   try {
     const body = await request({
       url: albumURL,
@@ -198,13 +208,13 @@ async function downloadCover(coverURL, albumDir) {
     const { tracksData, coverURL } = getLinksAndTags(body, domain);
     const albumDir = await prepareAlbumDir(tracksData);
 
-	console.log(`albumURL: ${albumURL}`);
-	console.log(`domain: ${domain}`);
-	console.log(`coverURL: ${coverURL}`);
-
     await downloadCover(coverURL, albumDir);
     await executeInChunks(tracksData, downloadTrack, parallelDownloads);
   } catch (error) {
     console.log(`Failed to download the album: ${error}`);
+
+    if (isDebugMode) {
+      console.log(error.stack);
+    }
   }
 })();

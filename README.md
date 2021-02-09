@@ -8,9 +8,12 @@ Clone and run `npm install` to meet dependencies.
 
 ## Usage
 ```
-node download_album.js [OPTIONS] ALBUM_URL
+Usage:
+        node download_album.js [OPTIONS] ALBUM_URL
 
 Valid options are:
         -h|--help               Get this message
+        -d|--debug              Print stack trace on error
         -s NUMBER               Number of tracks to be downloaded simultaneously (default: 5)
+
 ```
