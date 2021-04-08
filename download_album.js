@@ -13,7 +13,8 @@ function usage(exitCode) {
       'Valid options are:\n' +
       '\t-h|--help\t\tGet this message\n' +
       '\t-d|--debug\t\tPrint stack trace on error\n' +
-      '\t-s NUMBER\t\tNumber of tracks to be downloaded simultaneously (default: 5)'
+      '\t-s NUMBER\t\tNumber of tracks to be downloaded simultaneously (default: 5)\n' +
+      '\t-t NUMBER\t\tDownload specific track number (useful if some track failed to download)'
   );
   process.exit(exitCode);
 }
@@ -22,13 +23,15 @@ const argv = parseArgs(process.argv.slice(2), {
   alias: {
     help: 'h',
     debug: 'd',
-    sim: 's'
+    sim: 's',
+    trackID: 't'
   },
 
   default: {
     help: false,
     debug: false,
-    sim: 5
+    sim: 5,
+    trackID: false
   },
 
   boolean: ['help', 'debug'],
@@ -51,8 +54,9 @@ function processArgs(argv) {
   const domain = url.parse(albumURL).hostname;
   const parallelDownloads = argv.sim;
   const isDebugMode = argv.debug;
+  const trackID = argv.trackID;
 
-  return { albumURL, domain, parallelDownloads, isDebugMode };
+  return { albumURL, domain, parallelDownloads, isDebugMode, trackID };
 }
 
 function getLinksAndTags(html, domain) {
@@ -92,7 +96,7 @@ function getLinksAndTags(html, domain) {
   return { tracksData, coverURL };
 }
 
-function executeInChunks(array, callback, queueSize = 5) {
+function executeInChunks(callbackArgs, callback, queueSize = 5) {
   const execWith = async (element, index) => {
     await callback(element);
     return index;
@@ -100,15 +104,15 @@ function executeInChunks(array, callback, queueSize = 5) {
 
   // Form initial queue consisting of promises, which resolve with
   // their index number in the queue array.
-  const queueArray = array.splice(0, queueSize).map(execWith);
+  const queueArray = callbackArgs.splice(0, queueSize).map(execWith);
 
   // Recursively get rid of resolved promises in the queue.
   // Add new promises preventing queue from emptying.
   const keepQueueSize = async () => {
-    if (array.length) {
+    if (callbackArgs.length) {
       try {
         const index = await Promise.race(queueArray);
-        queueArray.splice(index, 1, execWith(array.shift(), index));
+        queueArray.splice(index, 1, execWith(callbackArgs.shift(), index));
         keepQueueSize();
       } catch (error) {
         console.log('Cannot assemble another chunk');
@@ -194,9 +198,13 @@ async function downloadCover(coverURL, albumDir) {
 }
 
 (async () => {
-  const { albumURL, domain, parallelDownloads, isDebugMode } = processArgs(
-    argv
-  );
+  const {
+    albumURL,
+    domain,
+    parallelDownloads,
+    isDebugMode,
+    trackID
+  } = processArgs(argv);
 
   try {
     const body = await request({
@@ -207,6 +215,11 @@ async function downloadCover(coverURL, albumDir) {
     });
     const { tracksData, coverURL } = getLinksAndTags(body, domain);
     const albumDir = await prepareAlbumDir(tracksData);
+
+    if (trackID) {
+      executeInChunks(tracksData.slice(trackID - 1, trackID), downloadTrack, 1);
+      return;
+    }
 
     await downloadCover(coverURL, albumDir);
     await executeInChunks(tracksData, downloadTrack, parallelDownloads);
