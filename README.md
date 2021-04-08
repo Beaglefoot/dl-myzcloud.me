@@ -15,5 +15,6 @@ Valid options are:
         -h|--help               Get this message
         -d|--debug              Print stack trace on error
         -s NUMBER               Number of tracks to be downloaded simultaneously (default: 5)
+        -t NUMBER               Download specific track number (useful if some track failed to download)
 
 ```
